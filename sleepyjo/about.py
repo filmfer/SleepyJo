@@ -120,3 +120,20 @@ class AboutWindow:
 
     def show(self) -> None:
         self._root.mainloop()
+
+
+def _main() -> int:
+    """Standalone About window entry: python -m sleepyjo.about [--lang xx]"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="SleepyJo About window")
+    parser.add_argument("--lang", default="")
+    args = parser.parse_args()
+    from .i18n import I18n
+
+    AboutWindow(I18n(args.lang)).show()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

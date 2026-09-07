@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 
 from . import battery, wakelock
 from .i18n import I18n
@@ -73,20 +74,36 @@ class SleepyJoApp:
 
     # -- about ------------------------------------------------------------------
     def show_about(self) -> None:
+        """Launch the About window in a dedicated subprocess.
+
+        On macOS, Tk must own the main thread of its process; pystray menu
+        callbacks run on a secondary thread, so in-process Tk crashes with
+        NSInvalidArgumentException. A subprocess guarantees a clean
+        Cocoa/Tk event loop regardless of platform.
+        """
+        import subprocess
+        import sys
+
         if self._about_open.is_set():
             return
         self._about_open.set()
 
-        def open_window() -> None:
-            try:
-                from .about import AboutWindow
-                AboutWindow(self._i18n).show()
-            except Exception as exc:  # noqa: BLE001
-                log.exception("About window failed: %s", exc)
-            finally:
+        cmd = [sys.executable, "-m", "sleepyjo.about",
+               "--lang", self._i18n.lang]
+        try:
+            subprocess.Popen(  # noqa: S603 - fixed argv, no shell
+                cmd,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        except OSError as exc:
+            log.error("Failed to launch About window: %s", exc)
+        finally:
+            # Optimistically allow reopening after a grace period.
+            def _rearm() -> None:
+                time.sleep(2.0)
                 self._about_open.clear()
+            threading.Thread(target=_rearm, daemon=True).start()
 
-        threading.Thread(target=open_window, daemon=True, name="sleepyjo-about").start()
 
     # -- lifecycle ---------------------------------------------------------------
     def _quit(self) -> None:
