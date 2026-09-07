@@ -20,20 +20,23 @@ GIF_MAX_W = 200
 log = logging.getLogger(__name__)
 
 
-def _cached_gif_path() -> Optional[Path]:
+def _cached_gif_path(retries: int = 2) -> Optional[Path]:
     cache = Path(tempfile.gettempdir()) / "sleepyjo_about.gif"
-    if cache.exists() and cache.stat().st_size > 0:
-        return cache
-    try:
-        req = urllib.request.Request(
-            GIF_URL, headers={"User-Agent": "SleepyJo/0.1"})
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
-            data = resp.read(2 * 1024 * 1024)  # hard cap 2 MiB
-        cache.write_bytes(data)
-        return cache
-    except Exception as exc:  # noqa: BLE001
-        log.error("GIF download failed: %s", exc)
-        return None
+    for attempt in range(retries):
+        if cache.exists() and cache.stat().st_size > 0:
+            return cache
+        try:
+            req = urllib.request.Request(
+                GIF_URL, headers={"User-Agent": "SleepyJo/0.1"})
+            with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
+                data = resp.read(2 * 1024 * 1024)  # hard cap 2 MiB
+            if data:
+                cache.write_bytes(data)
+                return cache
+            log.warning("GIF download attempt %d returned empty body", attempt + 1)
+        except Exception as exc:  # noqa: BLE001
+            log.error("GIF download attempt %d failed: %s", attempt + 1, exc)
+    return None
 
 
 class AboutWindow:
@@ -64,9 +67,12 @@ class AboutWindow:
         import webbrowser
         t = self._i18n.t
         root = self._root
-        root.configure(padx=16, pady=12)
+        # Explicit colors: Tk default labels are invisible on macOS dark mode
+        # (dark text on dark background). Force a fixed light theme.
+        BG, FG, LINK = "#ffffff", "#1a1a1a", "#1a73e8"
+        root.configure(padx=16, pady=12, bg=BG)
 
-        gif_path = _cached_gif_path()
+        gif_path = _cached_gif_path(retries=2)
         if gif_path is not None:
             try:
                 gif = self._Image.open(gif_path)
@@ -77,17 +83,18 @@ class AboutWindow:
                 log.error("GIF decode failed: %s", exc)
 
         if self._frames:
-            self._label = self._tk.Label(root, image=self._frames[0], bg="white")
+            self._label = self._tk.Label(root, image=self._frames[0], bg=BG)
             self._label.image = self._frames[0]
             self._label.pack(pady=(0, 8))
             self._animate()
 
         for key in ("about_author", "about_email", "about_coffee"):
-            self._tk.Label(root, text=t(key), font=("TkDefaultFont", 10)).pack(pady=1)
+            self._tk.Label(root, text=t(key), font=("TkDefaultFont", 10),
+                           bg=BG, fg=FG).pack(pady=1)
 
         link = self._tk.Label(
             root, text="https://buymeacoffee.com/filmfer",
-            fg="#1a73e8", cursor="hand2")
+            bg=BG, fg=LINK, cursor="hand2")
         link.pack(pady=(2, 4))
         link.bind("<Button-1>",
                   lambda _e: webbrowser.open("https://buymeacoffee.com/filmfer"))

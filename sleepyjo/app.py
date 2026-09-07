@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 import threading
 import time
+from pathlib import Path
 
 from . import battery, wakelock
 from .i18n import I18n
@@ -90,11 +92,13 @@ class SleepyJoApp:
 
         cmd = [sys.executable, "-m", "sleepyjo.about",
                "--lang", self._i18n.lang]
+        log_path = Path(tempfile.gettempdir()) / "sleepyjo_about.log"
         try:
-            subprocess.Popen(  # noqa: S603 - fixed argv, no shell
-                cmd,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
+            with open(log_path, "ab") as log_file:  # noqa: SIM115
+                subprocess.Popen(  # noqa: S603 - fixed argv, no shell
+                    cmd,
+                    stdout=log_file, stderr=subprocess.STDOUT,
+                )
         except OSError as exc:
             log.error("Failed to launch About window: %s", exc)
         finally:
