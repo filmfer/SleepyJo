@@ -1,0 +1,18 @@
+{
+  "app_name": "SleepyJo",
+  "menu_activate": "Ativar",
+  "menu_deactivate": "Desativar",
+  "menu_timer": "Duração",
+  "menu_custom_hours": "{hours} hora(s)",
+  "menu_about": "Sobre mim",
+  "menu_quit": "Sair",
+  "menu_battery_limit": "Limitado pela bateria ({percent}%)",
+  "notif_activated": "SleepyJo ativo por {hours} hora(s)",
+  "notif_deactivated": "SleepyJo desativado",
+  "notif_battery_10": "Bateria fraca: 10%! O SleepyJo vai desligar-se em breve.",
+  "notif_battery_5": "Bateria crítica: 5%. SleepyJo desativado para permitir a hibernação.",
+  "about_title": "Sobre mim",
+  "about_author": "Autor: J. Filipe Fernandes",
+  "about_email": "Email: filmfer@gmail.com",
+  "about_coffee": "Apoie-me: buymeacoffee.com/filmfer"
+}

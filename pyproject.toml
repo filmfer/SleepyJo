@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "SleepyJo"
+version = "0.1.0"
+description = "Lightweight cross-platform system tray wake-lock utility (Caffeine-like)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "J. Filipe Fernandes", email = "filmfer@gmail.com" }]
+keywords = ["tray", "caffeine", "wake-lock", "sleep", "inhibit"]
+dependencies = [
+    "pystray==0.19.5",
+    "Pillow==10.4.0",
+    "psutil==6.0.0",
+]
+
+[project.scripts]
+sleepyjo = "sleepyjo.app:main"
+
+[project.optional-dependencies]
+dev = ["pyinstaller==6.10.0", "pytest==8.3.3"]
+
+[tool.setuptools.packages.find]
+include = ["sleepyjo*"]
+
+[tool.setuptools.package-data]
+sleepyjo = ["locales/*.json"]
