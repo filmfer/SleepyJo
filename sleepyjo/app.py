@@ -90,8 +90,11 @@ class SleepyJoApp:
             return
         self._about_open.set()
 
-        cmd = [sys.executable, "-m", "sleepyjo.about",
-               "--lang", self._i18n.lang]
+        cmd = [sys.executable]
+        if getattr(sys, "frozen", False):
+            cmd += ["--about", "--lang", self._i18n.lang]
+        else:
+            cmd += ["-m", "sleepyjo.about", "--lang", self._i18n.lang]
         log_path = Path(tempfile.gettempdir()) / "sleepyjo_about.log"
         try:
             with open(log_path, "ab") as log_file:  # noqa: SIM115

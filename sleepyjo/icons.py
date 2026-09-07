@@ -1,13 +1,13 @@
 """Programmatic icon factory (Pillow). No shipped image assets.
 
-Draws outline eyes; foreground color follows OS Light/Dark theme.
-Icons are cached per (state, dark, size) tuple in an O(1) dict.
+Draws outline eyes with 4x supersampling (LANCZOS downscale) for smooth,
+detailed rendering at tiny tray sizes. Foreground color follows the OS
+Light/Dark theme. Icons cached per (kind, dark, size) — O(1) lookups.
 """
 
 from __future__ import annotations
 
 import logging
-import math
 import platform
 import subprocess
 from typing import Dict, Optional, Tuple
@@ -18,13 +18,12 @@ log = logging.getLogger(__name__)
 
 IconKind = str  # "closed" | "open" | "tired" | "blink_closed"
 _cache: Dict[Tuple[str, bool, int], "Image.Image"] = {}
-FORE_COLOR_LIGHT_THEME = (0, 0, 0, 255)   # black outline on light theme
-FORE_COLOR_DARK_THEME = (255, 255, 255, 255)  # white outline on dark theme
+SS = 4  # supersample factor
+FORE_LIGHT = (0, 0, 0, 255)
+FORE_DARK = (255, 255, 255, 255)
 
 
-# --- Theme detection ---------------------------------------------------------
 def is_dark_theme() -> bool:
-    """Best-effort OS theme detection; defaults to dark (white outline)."""
     system = platform.system()
     try:
         if system == "Darwin":
@@ -50,9 +49,7 @@ def is_dark_theme() -> bool:
     return True
 
 
-# --- Renderers ---------------------------------------------------------------
 def _tray_size() -> int:
-    """Native tray icon size per platform."""
     system = platform.system()
     if system == "Darwin":
         return 22
@@ -61,36 +58,57 @@ def _tray_size() -> int:
     return 24
 
 
-def _draw_eye(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float,
-              h: float, color: Tuple[int, int, int, int], width: int,
-              closed: bool) -> None:
-    """Outline eye: almond (open) or straight lid (closed)."""
-    box = (cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2)
+def _eye(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float,
+         h: float, color, lw: int, closed: bool) -> None:
+    """Almond eye with iris+pupil; closed = smooth lid line with lashes."""
     if closed:
-        draw.line((box[0], cy, box[2], cy), fill=color, width=width)
+        # Gently curved lid (downward arc looks like a relaxed closed eye).
+        draw.arc((cx - w / 2, cy - h * 0.35, cx + w / 2, cy + h * 0.55),
+                 start=25, end=155, fill=color, width=lw)
+        # Small lashes at both ends.
+        lx = w * 0.5
+        for sign, ang in ((-1, 25), (1, 155)):
+            ex = cx + sign * lx * 0.92
+            ey = cy + h * 0.05
+            draw.line((ex, ey, ex + sign * w * 0.10, ey - h * 0.22),
+                      fill=color, width=max(1, lw - 1))
         return
-    draw.arc(box, start=200, end=340, fill=color, width=width)   # upper lid
-    draw.arc(box, start=20, end=160, fill=color, width=width)    # lower lid
-    r = h * 0.22
-    draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=color, width=width)
+    # Upper lid.
+    draw.arc((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2),
+             start=195, end=345, fill=color, width=lw)
+    # Lower lid (shallower).
+    draw.arc((cx - w / 2, cy - h * 0.30, cx + w / 2, cy + h * 0.62),
+             start=25, end=155, fill=color, width=lw)
+    # Iris + pupil + light glint.
+    r = h * 0.30
+    draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=color, width=lw)
+    r2 = r * 0.45
+    draw.ellipse((cx - r2, cy - r2, cx + r2, cy + r2), fill=color)
+    gr = r * 0.16
+    gx, gy = cx - r * 0.4, cy - r * 0.4
+    draw.ellipse((gx - gr, gy - gr, gx + gr, gy + gr), fill=color)
 
 
-def _draw_tired(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float,
-                h: float, color: Tuple[int, int, int, int], width: int) -> None:
-    """Open eye with a toothpick propping the upper eyelid."""
-    _draw_eye(draw, cx, cy, w, h, color, width, closed=False)
-    # Toothpick: diagonal stick under the upper lid, left to right.
-    x0, y0 = cx - w * 0.55, cy - h * 0.05
-    x1, y1 = cx + w * 0.65, cy - h * 0.85
-    draw.line((x0, y0, x1, y1), fill=color, width=max(1, width))
-    # Small match-head.
-    r = w * 0.08
-    draw.ellipse((x1 - r, y1 - r, x1 + r, y1 + r), outline=color, width=max(1, width))
+def _tired(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float,
+           h: float, color, lw: int) -> None:
+    """Open eye with a toothpick propping the upper eyelid (droopy lid)."""
+    _eye(draw, cx, cy, w, h, color, lw, closed=False)
+    # Droopy upper lid: flat arc sagging just below the eye's top edge.
+    draw.arc((cx - w * 0.42, cy - h * 0.75, cx + w * 0.42, cy + h * 0.35),
+             start=215, end=325, fill=color, width=max(1, lw - 1))
+    # Toothpick anchored ON the upper lid, extending up-right (never
+    # crossing the iris — the stick props the lid from above).
+    x0, y0 = cx - w * 0.22, cy - h * 0.52
+    x1, y1 = cx + w * 0.55, cy - h * 1.15
+    draw.line((x0, y0, x1, y1), fill=color, width=max(1, lw))
+    # Match head at the tip.
+    r = w * 0.10
+    draw.ellipse((x1 - r, y1 - r, x1 + r, y1 + r), outline=color,
+                 width=max(1, lw - 1))
 
 
 def render(kind: IconKind, dark: Optional[bool] = None,
            size: Optional[int] = None) -> "Image.Image":
-    """Render (and cache) a tray icon. O(1) via dict memoization."""
     if dark is None:
         dark = is_dark_theme()
     if size is None:
@@ -99,38 +117,35 @@ def render(kind: IconKind, dark: Optional[bool] = None,
     if key in _cache:
         return _cache[key]
 
-    color = FORE_COLOR_DARK_THEME if dark else FORE_COLOR_LIGHT_THEME
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    color = FORE_DARK if dark else FORE_LIGHT
+    ss = size * SS
+    img = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    cx, cy = size / 2, size / 2
-    w, h = size * 0.8, size * 0.5
-    width = max(1, size // 12)
+    cx, cy = ss / 2, ss / 2
+    w, h = ss * 0.82, ss * 0.52
+    lw = max(2, ss // 11)
 
     if kind == "closed":
-        _draw_eye(draw, cx, cy, w, h, color, width, closed=True)
+        _eye(draw, cx, cy, w, h, color, lw, closed=True)
     elif kind == "open":
-        _draw_eye(draw, cx, cy, w, h, color, width, closed=False)
+        _eye(draw, cx, cy, w, h, color, lw, closed=False)
     elif kind == "tired":
-        _draw_tired(draw, cx, cy, w, h, color, width)
+        _tired(draw, cx, cy, w, h, color, lw)
     elif kind == "blink_closed":
-        # Blink frame: slightly angled closed lid to feel animated.
-        draw.line((cx - w / 2, cy + 1, cx + w / 2, cy - 1), fill=color, width=width)
+        # Slightly angled lid to read as a blink frame.
+        draw.arc((ss * 0.08, cy - ss * 0.18, ss * 0.92, cy + ss * 0.28),
+                 start=30, end=150, fill=color, width=lw)
     else:
         raise ValueError(f"unknown icon kind: {kind}")
 
-    _cache[key] = img
-    return img
+    out = img.resize((size, size), Image.LANCZOS)
+    _cache[key] = out
+    return out
 
 
 def blink_sequence() -> tuple:
-    """Frames for the pre-sleep animation: 3 blinks (open/closed pairs)."""
     return ("open", "blink_closed", "open", "blink_closed",
             "open", "blink_closed", "open")
-
-
-def tired_after_secs(hours: float = 1.0, secs: Optional[float] = None) -> bool:
-    """Whether the 'tired' icon should show (awake longer than `hours`)."""
-    return (secs if secs is not None else 0) >= math.ceil(hours * 3600)
 
 
 def clear_cache() -> None:

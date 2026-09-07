@@ -16,22 +16,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS - Apple Silicon (M Series) native
-          - os: macos-14
+          - os: macos-14          # Apple Silicon (M Series)
             arch: arm64
-          # macOS - Intel
-          - os: macos-13
+          - os: macos-13          # Intel
             arch: x86_64
-          # Linux (Debian/Ubuntu/Fedora compatible) - x86_64
-          - os: ubuntu-22.04
+          - os: ubuntu-22.04      # Debian/Ubuntu/Fedora compatible
             arch: x86_64
-          # Linux - ARM64
           - os: ubuntu-22.04-arm
             arch: aarch64
-          # Windows - x64
           - os: windows-2022
             arch: x64
-          # Windows - ARM64
           - os: windows-11-arm
             arch: arm64
 
@@ -58,29 +52,102 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: Build with PyInstaller
+      - name: Build executable (PyInstaller)
         run: |
           pyinstaller --noconfirm --clean --onefile --name SleepyJo \
             --hidden-import pystray._util \
             sleepyjo/__main__.py
 
-      - name: Rename artifact per platform
-        shell: bash
+      # ---------- macOS: .app bundle -> DMG ----------
+      - name: Package DMG
+        if: runner.os == 'macOS'
         run: |
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            mv dist/SleepyJo dist/SleepyJo.app
-            tar -czf dist/SleepyJo-${{ matrix.os }}-${{ matrix.arch }}.app.tar.gz -C dist SleepyJo.app
-          elif [ "$RUNNER_OS" = "Windows" ]; then
-            mv dist/SleepyJo.exe dist/SleepyJo-${{ matrix.os }}-${{ matrix.arch }}.exe
-          else
-            mv dist/SleepyJo dist/SleepyJo-${{ matrix.os }}-${{ matrix.arch }}
-          fi
+          mkdir -p dist/SleepyJo.app/Contents/MacOS dist/SleepyJo.app/Contents/Resources
+          cp dist/SleepyJo dist/SleepyJo.app/Contents/MacOS/SleepyJo
+          cat > dist/SleepyJo.app/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>SleepyJo</string>
+            <key>CFBundleExecutable</key><string>SleepyJo</string>
+            <key>CFBundleIdentifier</key><string>com.filmfer.sleepyjo</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>LSUIElement</key><true/>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict></plist>
+          PLIST
+          ln -s /Applications dist/Applications
+          hdiutil create -volname SleepyJo -srcfolder dist \
+            -ov -format UDZO SleepyJo-${{ matrix.os }}-${{ matrix.arch }}.dmg
+
+      # ---------- Windows: Inno Setup EXE installer ----------
+      - name: Package EXE installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          @'
+          [Setup]
+          AppName=SleepyJo
+          AppVersion=0.1.0
+          DefaultDirName={autopf}\SleepyJo
+          OutputDir=.
+          OutputBaseFilename=SleepyJo-Setup-${{ matrix.arch }}
+          Compression=lzma2
+          SolidCompression=yes
+          [Files]
+          Source: "dist\SleepyJo.exe"; DestDir: "{app}"
+          [Icons]
+          Name: "{autoprograms}\SleepyJo"; Filename: "{app}\SleepyJo.exe"
+          Name: "{autodesktop}\SleepyJo"; Filename: "{app}\SleepyJo.exe"; Tasks: desktopicon
+          [Tasks]
+          Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"
+          [Run]
+          Filename: "{app}\SleepyJo.exe"; Description: "Launch SleepyJo"; Flags: nowait postinstall skipifsilent
+          '@ | Set-Content installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      # ---------- Linux: install.sh with embedded binary ----------
+      - name: Package install.sh
+        if: runner.os == 'Linux'
+        run: |
+          base64 -w0 dist/SleepyJo > dist/SleepyJo.b64
+          cat > dist/install-sleepyjo.sh <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          PREFIX="${PREFIX:-/usr/local}"
+          echo "SleepyJo installer -> $PREFIX"
+          sed '1,/^__PAYLOAD__$/d' "$0" | base64 -d > /tmp/sleepyjo-bin
+          chmod +x /tmp/sleepyjo-bin
+          sudo mkdir -p "$PREFIX/bin"
+          sudo mv /tmp/sleepyjo-bin "$PREFIX/bin/sleepyjo"
+          sudo mkdir -p "$PREFIX/share/applications"
+          cat > "$PREFIX/share/applications/sleepyjo.desktop" <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=SleepyJo
+          Exec=sleepyjo
+          Icon=utilities-eye
+          Categories=Utility;
+          X-GNOME-UsesNotifications=true
+          DESKTOP
+          echo "Installed. Run: sleepyjo"
+          echo "Requires: PyGObject tray deps (apt install python3-gi gir1.2-appindicator3-0.1)"
+          exit 0
+          __PAYLOAD__
+          SCRIPT
+          cat dist/SleepyJo.b64 >> dist/install-sleepyjo.sh
+          chmod +x dist/install-sleepyjo.sh
+          rm dist/SleepyJo.b64
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: SleepyJo-${{ matrix.os }}-${{ matrix.arch }}
-          path: dist/SleepyJo-*
+          path: |
+            dist/*.dmg
+            dist/SleepyJo-Setup-*
+            dist/install-sleepyjo.sh
 
   release:
     needs: build
@@ -96,5 +163,9 @@ jobs:
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/SleepyJo-*
+          files: |
+            dist/*.dmg
+            dist/SleepyJo-Setup-*
+            dist/install-sleepyjo.sh
           generate_release_notes: true
+
