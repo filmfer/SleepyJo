@@ -1,42 +1,26 @@
 """Lightweight Tkinter "About me" window (Step 5).
 
-Centered, minimal, animated GIF via Pillow's frame sequencer with after()
-scheduling (never blocks the Tk main loop). GIF is fetched once and cached;
-network failure degrades gracefully to text-only.
+Rendered entirely on a tk.Canvas: tk.Label bg/fg are IGNORED by the macOS
+Aqua theme (text becomes invisible in dark mode), while Canvas item colors
+(fill=) are honored reliably. The Buy-Me-a-Coffee logo is embedded as
+base64 — zero network dependency at runtime.
 """
 
 from __future__ import annotations
 
+import base64
 import logging
-import tempfile
-import threading
-import urllib.request
-from pathlib import Path
-from typing import Optional
-
-GIF_URL = "https://media.giphy.com/media/o7RZbs4KAA6tvM4H6j/giphy.gif"
-GIF_MAX_W = 200
+import webbrowser
 
 log = logging.getLogger(__name__)
 
+BMC_URL = "https://buymeacoffee.com/filmfer"
+# Injected by tools/embed_logo.py (PNG, 545x153).
+BMC_LOGO_B64 = "iVBORw0KGgoAAAANSUhEUgAAAiEAAACZCAMAAADOzxqEAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAIRQTFRFw6kJSkAahnUS8NACHBkhpI8N4cME/+ZAhnUROjMcKyYfaFoW0rYHlYIPs5wLWU0Yd2cUHBkg//e/aFoVd2cTKyYe0rYG/98Q/+6AWU0X//vf//3v/+Eg//CP/+Mw//Sv/+pg//nP/+xw//Kf/+hQ/+5///a/DQwiDQwj/////90A////A0MgiAAAACx0Uk5T/////////////////////////////////////////////////////////wDH1gmMAAARpUlEQVR42uydaWPiOAyGfcQpuUMp04N2em8z8P//3xJiJ5btHJA2pY30ZbctE4z8RJZeK4bsTLt7ePq7RZuhXV+8PG4sHgj8cfNwj56atb29dhFy94QeQrt/bSXk/Rrdg1Yy8p+TkGfMPtCUvWxsQh4xgKA19vfOJOQVnYIGCptnSAgCgtaCSEXIIzoEzcpXNw0hz5iDoDlykYYQrGLQXPauCHlHX6A57bki5A7XGDS3XVSEoNSO1mb/lYRs0A9oHUGE7B7QD2itdrcnBLf70drtZUfu0Ato7fZ3R3CRQetcZghWMmhd9khQT0XrsneCPkDrsickBK3TLpAQNCQEDQlBQ0LQfjohnJB0oZsg5A/6FwnZbv10cUuXHy1Gbxepj26eLyHpav3Rb+uV4OjqGRLCF8uPobZcISOzI+TPcD4OjKTo7XkR4h8HyN6wbJoXISsw+wFdLRYJaUzsyxkKM9g1untWhNB6+ViQjhyDJKtAvRKr33kS8kEXoo0RkiZ/ypS2emGC/p4TIQszE6W0XGmkXe1/koXwVb0krdDfcyKEB0MzVH9f91TBBv09q2qX3x5Rw1T/h/6eFSH7LGO1HBhDZNaC+vvMCNlbekX7ACnzkO0VKiIzJaS0P+liRV2glKlrWpW46eEXC3T4LAmpzdcUM0P78LGYQUK67ZCxLHH7bjaE/FksFuSYxLNahW4xV50HIWTdNAiJ/lYyn4grVfWsMReZASHCykkDSq+qzkO4d7egdgob4FLz2wk5ft/fUf6i/WJCVh8jDZORX07IWEAwiPxyQki1lStIchUcw8U+U0mqpCRAv/9qQpLDLMuu030+eku7+92XlC4SVRmvcQfv9xNySEOWZmAhZCFrl8oOrSIpMTWTBPdnfj8h6zGtHmRos1kc0Rwz2rp8TJgxUYJN9AzSCYSMSjbJwP0Z3yuKwuMyPBEybw0lLr2R678J9r+YRlg6nhDyCYT0RyBWlEZEFBaVBWLGhNCDC/QIcvhFcp6EVA2F6xP5vR1ISF5YFsSzJSQ0CaluIHGehEg5ZH2VkCPzBJ8ksupZDbxroHmzRaQwCancQ86UEL09db2vWQTpucaffUl8RXXtRJxESOHNNHWND5+e/hhCSIvocdi7qx68S5tHIlx7OMv+NwlchBTRPAkhFiFWUDkrQsbvywx4xrtOPvJyvzhRwMwziCSHz579HEJkW/LJNiTBqlzQKCKVk4p5PrVX5aXMXHa88yVk6GMQ7oNEhsQBbvpkG1mRdj4Wmd4gEzrj5D5VTpIruj6Wj6FdiMSKGPGMCany0tSUQ86ckLqCLeuULlTWZQqrmhCHqijEztVnTwgxl53oRxCizyoh2nmI6eHH+o/pcQ/upi2ETFXMcGcFz5P9XHnZp7jML9XikLX/3UrKSEdiIuPs4ZpgO2v8kMcQ4ieLwbUFP44QZlUuKVARBUu45mwa+Z1T2yIz+Mqx5bZH1iTQ4lA6ReaHE56sqPKOzymyfYmf9PpFacZWq0zMyp3xcgCh6BHMDEJ4biuLQ4b8dYSU55gthx4ac+RuDrOqOaozE+m+PWzyhZIjb7D0Gody74upyppW0HGl1nnCUXOaKYER+9SMML6N213LG7knBNci1CH/+IMkVe2aHjc47BryFxJyEElvjyJk8JMQkemTSL/jBPjMkfbTYQMjhJ6LtLtRM0/ehpG288Ohp8EcpLq42zns6lqZhZjzdUXRAM0zQyFkWlKmv2foICSz0RLar8JvIOSodrHkuEOIKExLfXlrCf3WYPpUVz+lDiUpcOvTqmAEW4TU8HTYLGXc01+Y9k98hy6eOjAw2NQVwjZJFcRKUVgE+17/UL6UENpDyP3Tw2VpN29bdWIROYmQNDLuA1D9EW3OIkt8lJ7LWzQ5D07WHkHhnj1j9ln70tj/OhkCPAFVQAcg1bjZANEdAlzBM2DIUxDSkpNdPz3/q+3y6NMhwmqmYyIYte9coMDLeeFNOEns4Js5FslqmuRNR1XQkL8IPRibuVw7fNbq7tixkeSMNULNIlwsXJuVYfMJc+udHNdMJGakSV8yzr6LkI6wcP+w+fcPEEKPkkO2zn27ACwQIUAg1MKJb4mzrk4KfXmJeNXGtfener0PI3lSrzpem7tlCPBykqi2p8L5gQM1Y55OiEqEo2oILKo/S+6WVEP7mrmuE7D+IU9CiOMueXv8B+2yf0kaQkgREs2XGQjZUXOzhY4CxDFTCUw/9J8PQFGAVgB/z1ojQ+BraaPzsQ+/rjf0UKCCl6jeIJJsC1dtaycmcX3NuCYk7B3yVxMinOXJxcPdP9NuZNvRcuil46LFhLVN4WuLObVVtbB1pohRHPLmXTJLlfKbBDBoiUmh3sKSd6gQiRolWCxY/QGpnOJAvX+LpEpd15QfCw45HNOQNoKQuoDdPN68XZT2dnO5+ecwRchgwYy0EXLwU6B7TGirgb2ikPaZat4jMfMA3yJE1DPA7TJCr08EuBbp3GUhOr1ezaYihKqRh/2SalZnPYkKo82Q/ZYhf71i9iEFkX999iKPIDqNkMPjN56WuoE8LWp+iu0iMGtNQ1TwaValHKoJYBryegZEix6SgWt5HQ0c9brHtdUybaIZlW/FVKCwPpaVmMj3q/mLgEzERrUKjFHd1aw/9xFycaxgpupGyurHIEgtiYBbT95gVAsnDgpIV67DzGLV16acGYpulS7Y20MwI/aL9n1Gvxl+3ixLUcOmmmODECsKJeY1aU1aWr+Itw95KkL2H/XyiwhJXXpUABNV39INAoeExbsI4SaWDtHFU7dhW4NoCq4lTAmCmPGxGj6rN5RCQ8bwGkIGiO5EOSGuB7ot+oY8ASGBrE8e+wi5lnXP4GQpd8VFXnmRgxibWBls5lhIuuqlzFzahGNDVaIjtd2grXbOIJmkkbOazaLEueumrVGJjBCZfB2x3jMw51xdkzT6ModDPr1tYgwhqoK96SNknKRqRBYC7olMmwurKsyKjqJzWxg5SgpiCtBDpACRgUUrFnFb4PdgdBJ6De7Ur4iWAMkixA8AIbak6lvFTaDtFfQPeQJCVnLaBxCy+kRCAs0/XA8SJiGkgOsGzwoam5lDswIx8GKwxUNsKfwwkZExaQQU6yEIMAMIAUlPqJgT/aI7szeD+oc8ASEqMDz1AHK8YObOrSQhun+EPhdGsx4PDUJAz4ByYWC6OQE/uWorLbITq0DRqqJMl0poZ44ldMAImO00cPcxF9b6C4IicbQRJKdUveMJEduLfkKCEyRV5larwbKc6ZPmweU5MuY0hUUjMbNJBqrKTH+b1PHMTqAHoNgljzL9j3lXDOFw6Nr2cmhvvCVmoRTrgKiOA+EYctiatX8RIapA6SPkVZY963GEyGnSl2VfR8DYKhXGXR8bABGzEGagDQMkeJnd8ENAmCMOebTOcCJApouQCP4DGBOMHeCsMAhJQICLrfujZcjTEXLVK5mdKKkaI5P3mQeqRf0Go4WtgjbOlIAE7Ts2GXC8Z+WOBaW5gAGNuAip2zKIVlGFzqTUgDl3RgVwsbqtUK1hTVeaRymLjZVoP+S0ZchTEFILpb2E1PLr6YSo7olIS+q43oVJ9MKFm41ByrNmyAjMcoSBxILpGrq1uRI4hFKtzYNodzMzsojQAYj2SzuKHC4mQqPfI46s/AhsNFtp3PFHyI3qdVeE3HUT8nasYJbaT2ASBYOvEZJrzml8mmwJU68OZANqbrfR5Oa9HDh6UJie9MVmsihMQvYv9wPjtiegc9ROl5zNpHpxUr2e8zT3YEdQnASu5gj9ml1DnoKQpdywveyTVNNTJFXNqU0oTeQnzcAOsMetFk+pDFT/CR23maWeQJWhIaRmr/FutWSF1tX2Ud1MHap/be+yqQOESOg4/4KpdSNnKS+GmiMqpR1DnoIQVcP2ErIY+kA3yBnzw9g4yUOQlasbJvb6XBb4sNEEHOtkCpOGuN3UmJl18oB8Z2Ftv9sdT1VI0UNIXaEL328+WuI1lUh9PyRgd8AIKvoqGkEckmLIkKcjhPdJZkdLqlnblDNtnzzvBYRyqArA40fMMGxIl6qW8TOrKz1xrPuwTzSoJj4TcpCpo5MEjCyt1xWPhkYuan6q2GhX3FOVGsKg0QrtHvIUhFwNE1XVoTSDv5CZumfcSx38RNrUpNTACTgrjB2b/+YvIrdM2ZyTxVW2aBx3w0CsirqOPRGOWOfoY1YRD66bwnCPx+o+grKZcuszz7p0y5AnIESFhpdOQO6OllTdBxAx7nBwwIW27mtElJumcQAjil0v6buDZbkTmuWiEdi1PEO0Dno/UX7r4ga1isO1q8XED60ICHYHmi0XaiuomQpAQXNVe8gnPVU1ihAxSDI7XlLN7dU2bJ7C1AN6eVcAUYSUj6561WOReqLimY/qJI6wS+IWTAO7+hQt27uymZZ1AAIQCRX4zbN+cLzECkcwhnD7RVXOO2DIX04IGUrIkae5l5oT5X6uHlHIkpaHh6rjEUnmfHhZByTi7oo66xNl1BzHzgXPGLZgjFmaJnXJ3KS66b0IXEeoCBBoTyXLXQaZypaJhWxRBgphbq9bQ4Y8DSGr7XUnIQ/HSqpl/VIj4Vo6pfzl5V17DBoggesi5XpNu7axRL28QTHT9dC3S9QJqtjX6jzXMcI+Ycw4Y1JpsLx+4EFlUJG+UEZgQd7aQz71eN5xp0MMElVvBh/EPJygdH+3dp/TrGd+J7bPkIhSGqnDseuiJhx6mrhPyCec75nWWpzqH6v1V7CZnTZnEyvHHD/kryFkv3psuvuYyTd82W5WjCbEmvGSSzH1oa7NTh+TJXf9mXxjNyex7ptPGPI4QtZDJLOLlidrvtSS4vMJ+R5jxmOWiXYaUzDBpxtHCB1GyGLyrwxR+6si+EWEVEDkcRM5kgkOzRxHiFLCHroIuf8GQjKlkIS/iZBDNkqJuad4zoQshoiqPacEfIWRWrYeeUTT2RAS1/+rEzLuabrpCEmHETKhV6kSk/xRByOcESFbJyHbCY53H0dIOkAyu5RdAhMSEtdbo+m4M7zOkhD+kwghwwj5GPO9ZydYVCsGbIIwPDUhWzMP8c+YENWHeN9ByOOxJ2WOt+YoIjrdCflfm1M1j4zphIizz1SHiKo3I7/37OQ8lTePJv4OQlRSFcKHwL3zJ2Q9iJDpBDNWb8qJn1/KaF+CwPRDioLtRF8AMJKQAZLZ07EnZX5SJdOc7/TDv91XnREr1OauUkh4MEWl9imE8C5CppdUay7IhF/D8tV5dxDUT0zIj6VO3YnPmhD1xPZrFyFX30IId55r9gPNPp/XKz7jsOVpCBkgqh59UuYnEZKqlokf/w2bodlSxsZ3jk1GiEoxXs5JUs1Ab+nP/0qa1Oz21/swg+15E6IK2fsOOaTqUl1O51FRuA/W/+GZiLZikgm/YPZTCOk6y+xiekkVPLvCttvfg0idUqkGw/Dr+R9JSCWXfvjb601rk2r62T2Ix4TlX/INvSSiRag3a/OEhh5NJkjuxn6L2VJN/7UrimxetqqJREzq0PA3RZDvtbGE3DZfofv35ubxUrOHm6frrXqoZsmn/Vxp2YWc+zjB306IkN+IqWnq4OFLXtXDky4yaOdEyFZ9j+r6yvE9UIn65uapQwja+RDyR/9uXaqb/geCnp4tIfU602UCHT1jQrZk2cPHEiPIvAnZZ6NdjCwXmIPMnZCyuFwFbj5uBfKBhEjzCREL3YyH2NHmTggaEoKGhKChISFoSAgaEoI2mb2Rv+gEtA57J0/oBLQOeyQP6AS0Drsjd+gEtHb7uyO7e3QDWqu97AnBZQatY5HZE7JBN6C12cVuT8gOqxm0NvvvQMjdNXoCrS2ElITs3tEVaE57loTsUFdFc9n7ThHyjOsMmm1/dzUhu0d0B5pp9xuNkN0rOgQN2vXzTicEEUFzA1ITsnvEXARNy0HudiYhu2esaNCUvWx2NiG73TuGEbRDjvqfRoVOyO4OBXi07f2rzgQkZLfbPGAzwLztDfJhEVIGkocnzEjmWb5cvDxuLB7+F2AAw+WtzrAzIicAAAAASUVORK5CYII="
 
-def _cached_gif_path(retries: int = 2) -> Optional[Path]:
-    cache = Path(tempfile.gettempdir()) / "sleepyjo_about.gif"
-    for attempt in range(retries):
-        if cache.exists() and cache.stat().st_size > 0:
-            return cache
-        try:
-            req = urllib.request.Request(
-                GIF_URL, headers={"User-Agent": "SleepyJo/0.1"})
-            with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
-                data = resp.read(2 * 1024 * 1024)  # hard cap 2 MiB
-            if data:
-                cache.write_bytes(data)
-                return cache
-            log.warning("GIF download attempt %d returned empty body", attempt + 1)
-        except Exception as exc:  # noqa: BLE001
-            log.error("GIF download attempt %d failed: %s", attempt + 1, exc)
-    return None
+BG, FG, LINK = "#ffffff", "#1a1a1a", "#1a73e8"
+WIN_W, WIN_H = 340, 330
+LOGO_TARGET_W = 200
 
 
 class AboutWindow:
@@ -50,80 +34,57 @@ class AboutWindow:
         self._Image = Image
         self._ImageTk = ImageTk
         self._i18n = i18n
-        self._job: Optional[str] = None
-        self._frames: list = []
-        self._idx = 0
-        self._durations: list = []
 
         self._root = tk.Tk()
         self._root.title(i18n.t("about_title"))
         self._root.resizable(False, False)
         self._root.attributes("-topmost", True)
-        self._build_ui()
+
+        self._canvas = tk.Canvas(self._root, width=WIN_W, height=WIN_H,
+                                 bg=BG, highlightthickness=0)
+        self._canvas.pack(fill="both", expand=True)
+        self._draw_content()
         self._center()
         self._root.protocol("WM_DELETE_WINDOW", self._root.destroy)
 
-    def _build_ui(self) -> None:
-        import webbrowser
+    def _draw_content(self) -> None:
+        import io
+
         t = self._i18n.t
-        root = self._root
-        # Explicit colors: Tk default labels are invisible on macOS dark mode
-        # (dark text on dark background). Force a fixed light theme.
-        BG, FG, LINK = "#ffffff", "#1a1a1a", "#1a73e8"
-        root.configure(padx=16, pady=12, bg=BG)
+        c = self._canvas
+        cx = WIN_W // 2
+        y = 18
 
-        gif_path = _cached_gif_path(retries=2)
-        if gif_path is not None:
-            try:
-                gif = self._Image.open(gif_path)
-                scale = min(1.0, GIF_MAX_W / gif.width)
-                target = (int(gif.width * scale), int(gif.height * scale))
-                self._load_frames(gif, target)
-            except Exception as exc:  # noqa: BLE001
-                log.error("GIF decode failed: %s", exc)
-
-        if self._frames:
-            self._label = self._tk.Label(root, image=self._frames[0], bg=BG)
-            self._label.image = self._frames[0]
-            self._label.pack(pady=(0, 8))
-            self._animate()
+        # Embedded BMC logo (static PNG via Pillow -> Tk PhotoImage).
+        try:
+            img = self._Image.open(io.BytesIO(base64.b64decode(BMC_LOGO_B64)))
+            scale = min(1.0, LOGO_TARGET_W / img.width)
+            img = img.convert("RGBA").resize(
+                (int(img.width * scale), int(img.height * scale)),
+                self._Image.LANCZOS)
+            self._logo = self._ImageTk.PhotoImage(img)
+            c.create_image(cx, y, image=self._logo, anchor="n")
+            y += img.height + 18
+        except Exception as exc:  # noqa: BLE001
+            log.error("BMC logo decode failed: %s", exc)
 
         for key in ("about_author", "about_email", "about_coffee"):
-            self._tk.Label(root, text=t(key), font=("TkDefaultFont", 10),
-                           bg=BG, fg=FG).pack(pady=1)
+            c.create_text(cx, y, text=t(key), fill=FG,
+                          font=("TkDefaultFont", 11), justify="center")
+            y += 26
 
-        link = self._tk.Label(
-            root, text="https://buymeacoffee.com/filmfer",
-            bg=BG, fg=LINK, cursor="hand2")
-        link.pack(pady=(2, 4))
-        link.bind("<Button-1>",
-                  lambda _e: webbrowser.open("https://buymeacoffee.com/filmfer"))
-
-    def _load_frames(self, gif, target) -> None:  # noqa: ANN001
-        try:
-            while True:
-                frame = gif.convert("RGBA")
-                frame.thumbnail(target, self._Image.LANCZOS)
-                self._frames.append(self._ImageTk.PhotoImage(frame))
-                self._durations.append(max(50, gif.info.get("duration", 80)))
-                gif.seek(len(self._frames))
-        except EOFError:
-            pass
-
-    def _animate(self) -> None:
-        if not self._frames:
-            return
-        self._idx = (self._idx + 1) % len(self._frames)
-        self._label.configure(image=self._frames[self._idx])
-        self._label.image = self._frames[self._idx]
-        self._job = self._root.after(self._durations[self._idx], self._animate)
+        c.create_text(cx, y + 4, text=BMC_URL, fill=LINK,
+                      font=("TkDefaultFont", 11, "underline"), tags=("link",))
+        c.tag_bind("link", "<Button-1>",
+                   lambda _e: webbrowser.open(BMC_URL))
+        c.tag_bind("link", "<Enter>", lambda _e: c.config(cursor="hand2"))
+        c.tag_bind("link", "<Leave>", lambda _e: c.config(cursor=""))
 
     def _center(self) -> None:
         self._root.update_idletasks()
-        w, h = self._root.winfo_width(), self._root.winfo_height()
-        x = (self._root.winfo_screenwidth() - w) // 2
-        y = (self._root.winfo_screenheight() - h) // 2
-        self._root.geometry(f"+{x}+{y}")
+        x = (self._root.winfo_screenwidth() - WIN_W) // 2
+        y = (self._root.winfo_screenheight() - WIN_H) // 2
+        self._root.geometry(f"{WIN_W}x{WIN_H}+{x}+{y}")
 
     def show(self) -> None:
         self._root.mainloop()
