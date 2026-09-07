@@ -58,11 +58,11 @@ class AboutWindow:
     """Builds and shows the centered About dialog on the Tk main thread."""
 
     def __init__(self, i18n) -> None:  # noqa: ANN001 - avoids circular import
+        import os
+        import tempfile
         import tkinter as tk
-        from PIL import ImageTk
 
         self._tk = tk
-        self._ImageTk = ImageTk
         self._i18n = i18n
 
         self._root = tk.Tk()
@@ -71,7 +71,15 @@ class AboutWindow:
         self._root.attributes("-topmost", True)
 
         composite, url_box = self._render_composite()
-        self._photo = self._ImageTk.PhotoImage(composite)
+
+        # System Python on macOS ships Tcl/Tk 8.5 where Pillow's ImageTk
+        # renders unreliably (window shows empty). Tk's NATIVE PhotoImage
+        # reads PPM in every version — bypass Pillow for display entirely.
+        self._ppm_path = os.path.join(tempfile.gettempdir(), "sleepyjo_about.ppm")
+        composite.save(self._ppm_path)
+        self._photo = tk.PhotoImage(file=self._ppm_path)
+        log.info("PhotoImage loaded native: %dx%d",
+                 self._photo.width(), self._photo.height())
 
         self._canvas = tk.Canvas(self._root, width=WIN_W, height=WIN_H,
                                  highlightthickness=0, bd=0)
