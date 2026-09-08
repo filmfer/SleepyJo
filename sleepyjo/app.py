@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import threading
 
 from . import battery, wakelock
@@ -38,17 +39,25 @@ class SleepyJoApp:
 
     # -- activation -----------------------------------------------------------
     def activate(self, hours: float) -> None:
-        cap = battery.max_awake_hours()
-        if cap is not None and hours > cap:
-            log.warning("Requested %.1fh exceeds battery headroom (%.1fh); clamping",
-                        hours, cap)
-            hours = cap
+        if math.isinf(hours):
+            # Indefinite: no timer, rely on battery monitor auto-deactivate at 5%.
+            self._monitor.cancel_timer()
+        else:
+            cap = battery.max_awake_hours()
+            if cap is not None and hours > cap:
+                log.warning("Requested %.1fh exceeds battery headroom (%.1fh); clamping",
+                            hours, cap)
+                hours = cap
+            self._monitor.start_timer(hours)
         self._lock.acquire()
         self._active.set()
-        self._monitor.start_timer(hours)
         self._tray.set_active(True)
-        battery.notify(self._i18n.t("app_name"),
-                       self._i18n.t("notif_activated", hours=g(hours)))
+        if math.isinf(hours):
+            battery.notify(self._i18n.t("app_name"),
+                           self._i18n.t("notif_activated_indefinite"))
+        else:
+            battery.notify(self._i18n.t("app_name"),
+                           self._i18n.t("notif_activated", hours=g(hours)))
 
     def deactivate(self) -> None:
         if not self._active.is_set():

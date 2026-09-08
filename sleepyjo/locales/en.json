@@ -1,6 +1,7 @@
 {
   "app_name": "SleepyJo",
   "menu_activate": "Activate",
+  "menu_activate_indefinitely": "Activate indefinitely",
   "menu_deactivate": "Deactivate",
   "menu_timer": "Duration",
   "menu_language": "Language",
@@ -17,6 +18,7 @@
   "menu_quit": "Quit",
   "menu_battery_limit": "Limited by battery ({percent}%)",
   "notif_activated": "SleepyJo active for {hours} hour(s)",
+  "notif_activated_indefinite": "SleepyJo activated indefinitely",
   "notif_deactivated": "SleepyJo deactivated",
   "notif_battery_10": "Low battery: 10%! SleepyJo will disable soon.",
   "notif_battery_5": "Critical battery: 5%. SleepyJo deactivated to allow hibernation.",

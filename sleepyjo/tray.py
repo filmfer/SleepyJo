@@ -54,8 +54,8 @@ class TrayController:
         cap = battery.max_awake_hours()
         items = [
             pystray.MenuItem(
-                lambda item: t("menu_activate") if not self._active
-                else t("menu_deactivate"),
+                lambda item: t("menu_deactivate") if self._active
+                else t("menu_activate_indefinitely"),
                 self._toggle, default=True),
             pystray.Menu.SEPARATOR,
         ]
@@ -90,7 +90,7 @@ class TrayController:
         if self._active:
             self._on_deactivate()
         else:
-            self._on_activate(1.0)  # default: 1 hour
+            self._on_activate(float('inf'))  # default click: indefinite
 
     def _make_timer_handler(self, hours: float) -> Callable[[pystray.Icon, pystray.MenuItem], None]:
         def handler(_icon: pystray.Icon, _item: pystray.MenuItem) -> None:
