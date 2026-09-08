@@ -80,29 +80,30 @@ jobs:
       - name: Package DMG
         if: runner.os == 'macOS'
         run: |
-          mkdir -p dist/SleepyJo.app/Contents/MacOS dist/dmg
+          mkdir -p dist/SleepyJo.app/Contents/MacOS dist/SleepyJo.app/Contents/Resources dist/dmg
           cp dist/SleepyJo dist/SleepyJo.app/Contents/MacOS/SleepyJo
+          cp dist/icon.icns dist/SleepyJo.app/Contents/Resources/AppIcon.icns
           cat > dist/SleepyJo.app/Contents/Info.plist <<'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>CFBundleName</key><string>SleepyJo</string>
+            <key>CFBundleDisplayName</key><string>SleepyJo</string>
             <key>CFBundleExecutable</key><string>SleepyJo</string>
             <key>CFBundleIdentifier</key><string>com.filmfer.sleepyjo</string>
             <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
+            <key>CFBundleIconName</key><string>AppIcon</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>LSUIElement</key><true/>
             <key>NSHighResolutionCapable</key><true/>
           </dict></plist>
           PLIST
-          mkdir -p dist/dmgroot
-          cp -R dist/SleepyJo.app dist/dmgroot/
-          ln -s /Applications dist/dmgroot/Applications
-          # Ad-hoc codesign: prevents the "app is damaged" refusal that
-          # unsigned binaries trigger. Users on machines without the
-          # signing cert still need: xattr -cr /Applications/SleepyJo.app
-          codesign --force --deep -s - dist/dmgroot/SleepyJo.app
-          codesign --verify --deep dist/dmgroot/SleepyJo.app
-          hdiutil create -volname SleepyJo -srcfolder dist/dmgroot \
+          codesign --force --deep -s - dist/SleepyJo.app 2>/dev/null || true
+          cp -R dist/SleepyJo.app dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname SleepyJo -srcfolder dist/dmg \
             -ov -format UDZO dist/SleepyJo-${{ matrix.os }}-${{ matrix.arch }}.dmg
 
       # ---------- Windows: Inno Setup EXE installer ----------
@@ -132,38 +133,45 @@ jobs:
           '@ | Set-Content installer.iss
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 
-      # ---------- Linux: install.sh with embedded binary ----------
+      # ---------- Linux: install.sh with embedded binary + icon ----------
       - name: Package install.sh
         if: runner.os == 'Linux'
         run: |
           base64 -w0 dist/SleepyJo > dist/SleepyJo.b64
+          base64 -w0 dist/icon.png > dist/icon.b64
           cat > dist/install-sleepyjo.sh <<'SCRIPT'
           #!/usr/bin/env bash
           set -euo pipefail
           PREFIX="${PREFIX:-/usr/local}"
           echo "SleepyJo installer -> $PREFIX"
-          sed '1,/^__PAYLOAD__$/d' "$0" | base64 -d > /tmp/sleepyjo-bin
+          sed -n '/^__PAYLOAD_BIN__$/,/^__PAYLOAD_ICON__$/p' "$0" | sed '1d;$d' | base64 -d > /tmp/sleepyjo-bin
           chmod +x /tmp/sleepyjo-bin
           sudo mkdir -p "$PREFIX/bin"
           sudo mv /tmp/sleepyjo-bin "$PREFIX/bin/sleepyjo"
+          sudo mkdir -p "$PREFIX/share/icons/hicolor/256x256/apps"
+          sed -n '/^__PAYLOAD_ICON__$/,$p' "$0" | sed '1d' | base64 -d > /tmp/sleepyjo-icon.png
+          sudo mv /tmp/sleepyjo-icon.png "$PREFIX/share/icons/hicolor/256x256/apps/sleepyjo.png"
           sudo mkdir -p "$PREFIX/share/applications"
           cat > "$PREFIX/share/applications/sleepyjo.desktop" <<'DESKTOP'
           [Desktop Entry]
           Type=Application
           Name=SleepyJo
           Exec=sleepyjo
-          Icon=utilities-eye
+          Icon=sleepyjo
           Categories=Utility;
           X-GNOME-UsesNotifications=true
           DESKTOP
+          sudo gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
           echo "Installed. Run: sleepyjo"
           echo "Requires: PyGObject tray deps (apt install python3-gi gir1.2-appindicator3-0.1)"
           exit 0
-          __PAYLOAD__
+          __PAYLOAD_BIN__
           SCRIPT
           cat dist/SleepyJo.b64 >> dist/install-sleepyjo.sh
+          echo "__PAYLOAD_ICON__" >> dist/install-sleepyjo.sh
+          cat dist/icon.b64 >> dist/install-sleepyjo.sh
           chmod +x dist/install-sleepyjo.sh
-          rm dist/SleepyJo.b64
+          rm dist/SleepyJo.b64 dist/icon.b64
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

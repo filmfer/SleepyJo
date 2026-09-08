@@ -83,21 +83,35 @@ _TEMPLATE = """<!DOCTYPE html>
 
 
 def _app_icon_b64() -> str:
-    """Render the macOS-style app icon to base64 PNG (runtime, no assets)."""
+    """Render the split-eye app icon to base64 PNG (runtime, no assets)."""
     from PIL import Image, ImageDraw
 
     from sleepyjo.icons import _eye
     size = 128
-    ss = 2
-    img = Image.new("RGBA", (size * ss, size * ss), (0, 0, 0, 0))
+    ss = size * 2
+    img = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
+    pad = size // 12
     d.rounded_rectangle(
-        (size // 16, size // 16, size * ss - size // 16,
-         size * ss - size // 16),
+        (pad, pad, ss - pad, ss - pad),
         radius=size * 22 // 100, fill=(29, 29, 31, 255))
-    _eye(d, size * ss / 2, size * ss / 2 + size * 0.02,
-         size * ss * 0.46, size * ss * 0.29,
-         (255, 255, 255, 255), max(2, size * ss // 16), closed=False)
+    lw = max(3, ss // 18)
+    eye_w, eye_h = ss * 0.34, ss * 0.42
+    cy = ss * 0.52
+    # Left half: open eye.
+    open_layer = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
+    _eye(ImageDraw.Draw(open_layer), ss * 0.27, cy, eye_w, eye_h,
+         (255, 255, 255, 255), lw, closed=False)
+    mask = Image.new("L", (ss, ss), 0)
+    ImageDraw.Draw(mask).rectangle((0, 0, ss * 0.52, ss), fill=255)
+    img.paste(open_layer, (0, 0), mask)
+    # Right half: closed eye.
+    closed_layer = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
+    _eye(ImageDraw.Draw(closed_layer), ss * 0.73, cy, eye_w, eye_h,
+         (255, 255, 255, 255), lw, closed=True)
+    mask = Image.new("L", (ss, ss), 0)
+    ImageDraw.Draw(mask).rectangle((ss * 0.48, 0, ss, ss), fill=255)
+    img.paste(closed_layer, (0, 0), mask)
     img = img.resize((size, size), Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, "PNG")
