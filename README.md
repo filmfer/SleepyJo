@@ -28,3 +28,12 @@ workflow builds standalone executables for macOS (Intel + M Series), Linux
 ## Author
 
 J. Filipe Fernandes — filmfer@gmail.com — <https://buymeacoffee.com/filmfer>
+
+## macOS first launch (unsigned build)
+
+The DMG is ad-hoc signed but not notarized (requires a paid Apple
+Developer account). If macOS reports the app as broken/damaged:
+
+```bash
+sudo xattr -rd com.apple.quarantine /Applications/SleepyJo.app
+```

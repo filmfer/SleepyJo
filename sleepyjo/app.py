@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import logging
-import tempfile
 import threading
-import time
-from pathlib import Path
 
 from . import battery, wakelock
 from .i18n import I18n
@@ -20,7 +17,6 @@ class SleepyJoApp:
         self._i18n = I18n()
         self._lock = wakelock.create()
         self._active = threading.Event()
-        self._about_open = threading.Event()
 
         self._monitor = battery.BatteryMonitor(
             on_expire=self.deactivate,
@@ -76,40 +72,13 @@ class SleepyJoApp:
 
     # -- about ------------------------------------------------------------------
     def show_about(self) -> None:
-        """Launch the About window in a dedicated subprocess.
+        """Open the About page (HTML) in the native browser.
 
-        On macOS, Tk must own the main thread of its process; pystray menu
-        callbacks run on a secondary thread, so in-process Tk crashes with
-        NSInvalidArgumentException. A subprocess guarantees a clean
-        Cocoa/Tk event loop regardless of platform.
+        No GUI toolkit: the page is styled for macOS/Windows/Linux themes
+        via prefers-color-scheme and opened with the platform browser.
         """
-        import subprocess
-        import sys
-
-        if self._about_open.is_set():
-            return
-        self._about_open.set()
-
-        cmd = [sys.executable]
-        if getattr(sys, "frozen", False):
-            cmd += ["--about", "--lang", self._i18n.lang]
-        else:
-            cmd += ["-m", "sleepyjo.about", "--lang", self._i18n.lang]
-        log_path = Path(tempfile.gettempdir()) / "sleepyjo_about.log"
-        try:
-            with open(log_path, "ab") as log_file:  # noqa: SIM115
-                subprocess.Popen(  # noqa: S603 - fixed argv, no shell
-                    cmd,
-                    stdout=log_file, stderr=subprocess.STDOUT,
-                )
-        except OSError as exc:
-            log.error("Failed to launch About window: %s", exc)
-        finally:
-            # Optimistically allow reopening after a grace period.
-            def _rearm() -> None:
-                time.sleep(2.0)
-                self._about_open.clear()
-            threading.Thread(target=_rearm, daemon=True).start()
+        from .about import open_about
+        open_about(self._i18n)
 
 
     # -- lifecycle ---------------------------------------------------------------

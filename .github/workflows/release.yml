@@ -91,6 +91,11 @@ jobs:
           mkdir -p dist/dmgroot
           cp -R dist/SleepyJo.app dist/dmgroot/
           ln -s /Applications dist/dmgroot/Applications
+          # Ad-hoc codesign: prevents the "app is damaged" refusal that
+          # unsigned binaries trigger. Users on machines without the
+          # signing cert still need: xattr -cr /Applications/SleepyJo.app
+          codesign --force --deep -s - dist/dmgroot/SleepyJo.app
+          codesign --verify --deep dist/dmgroot/SleepyJo.app
           hdiutil create -volname SleepyJo -srcfolder dist/dmgroot \
             -ov -format UDZO dist/SleepyJo-${{ matrix.os }}-${{ matrix.arch }}.dmg
 
