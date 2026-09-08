@@ -60,6 +60,14 @@ jobs:
         run: |
           pyinstaller --noconfirm --clean --onefile --name SleepyJo \
             --hidden-import pystray._util \
+            --hidden-import sleepyjo \
+            --hidden-import sleepyjo.app \
+            --hidden-import sleepyjo.about \
+            --hidden-import sleepyjo.wakelock \
+            --hidden-import sleepyjo.battery \
+            --hidden-import sleepyjo.icons \
+            --hidden-import sleepyjo.tray \
+            --hidden-import sleepyjo.i18n \
             sleepyjo/__main__.py
 
       # ---------- macOS: .app bundle -> DMG ----------
