@@ -69,12 +69,19 @@ class TrayController:
         items.append(pystray.Menu.SEPARATOR)
         items.append(pystray.MenuItem(t("menu_about"), self._about))
         items.append(pystray.Menu.SEPARATOR)
-        for lang, label in (("pt", "Português"), ("en", "English"),
-                            ("fr", "Français"), ("it", "Italiano"),
-                            ("de", "Deutsch"), ("es", "Español")):
-            items.append(pystray.MenuItem(
-                label, self._make_lang_handler(lang),
-                radio=True, checked=lambda item, l=lang: self._i18n.lang == l))
+        flags = t("menu_flags")
+        lang_items = [
+            pystray.MenuItem(
+                f"{flags.get(lang, '')} {label}",
+                self._make_lang_handler(lang),
+                radio=True,
+                checked=lambda item, l=lang: self._i18n.lang == l)
+            for lang, label in (
+                ("pt", "Português"), ("en", "English"), ("fr", "Français"),
+                ("it", "Italiano"), ("de", "Deutsch"), ("es", "Español"))
+        ]
+        items.append(pystray.MenuItem(
+            t("menu_language"), pystray.Menu(*lang_items)))
         items.append(pystray.Menu.SEPARATOR)
         items.append(pystray.MenuItem(t("menu_quit"), self._quit))
         return pystray.Menu(*items)

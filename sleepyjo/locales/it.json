@@ -3,6 +3,15 @@
   "menu_activate": "Attiva",
   "menu_deactivate": "Disattiva",
   "menu_timer": "Durata",
+  "menu_language": "Lingua",
+  "menu_flags": {
+    "pt": "🇵🇹",
+    "en": "🇬🇧",
+    "fr": "🇫🇷",
+    "it": "🇮🇹",
+    "de": "🇩🇪",
+    "es": "🇪🇸"
+  },
   "menu_custom_hours": "{hours} ora/e",
   "menu_about": "Su di me",
   "menu_quit": "Esci",

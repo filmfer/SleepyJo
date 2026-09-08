@@ -3,6 +3,15 @@
   "menu_activate": "Activar",
   "menu_deactivate": "Desactivar",
   "menu_timer": "Duración",
+  "menu_language": "Idioma",
+  "menu_flags": {
+    "pt": "🇵🇹",
+    "en": "🇬🇧",
+    "fr": "🇫🇷",
+    "it": "🇮🇹",
+    "de": "🇩🇪",
+    "es": "🇪🇸"
+  },
   "menu_custom_hours": "{hours} hora(s)",
   "menu_about": "Sobre mí",
   "menu_quit": "Salir",

@@ -8,6 +8,7 @@ Light/Dark theme. Icons cached per (kind, dark, size) — O(1) lookups.
 from __future__ import annotations
 
 import logging
+import math
 import platform
 import subprocess
 from typing import Dict, Optional, Tuple
@@ -18,7 +19,7 @@ log = logging.getLogger(__name__)
 
 IconKind = str  # "closed" | "open" | "tired" | "blink_closed"
 _cache: Dict[Tuple[str, bool, int], "Image.Image"] = {}
-SS = 4  # supersample factor
+SS = 6  # supersample factor
 FORE_LIGHT = (0, 0, 0, 255)
 FORE_DARK = (255, 255, 255, 255)
 
@@ -58,52 +59,64 @@ def _tray_size() -> int:
     return 24
 
 
-def _eye(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float,
-         h: float, color, lw: int, closed: bool) -> None:
-    """Almond eye with iris+pupil; closed = smooth lid line with lashes."""
-    if closed:
-        # Gently curved lid (downward arc looks like a relaxed closed eye).
-        draw.arc((cx - w / 2, cy - h * 0.35, cx + w / 2, cy + h * 0.55),
-                 start=25, end=155, fill=color, width=lw)
-        # Small lashes at both ends.
-        lx = w * 0.5
-        for sign, ang in ((-1, 25), (1, 155)):
-            ex = cx + sign * lx * 0.92
-            ey = cy + h * 0.05
-            draw.line((ex, ey, ex + sign * w * 0.10, ey - h * 0.22),
-                      fill=color, width=max(1, lw - 1))
-        return
-    # Upper lid.
+def _almond(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float,
+            h: float, color, lw: int) -> None:
+    """Almond silhouette: upper lid arc + shallower lower lid arc."""
     draw.arc((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2),
              start=195, end=345, fill=color, width=lw)
-    # Lower lid (shallower).
     draw.arc((cx - w / 2, cy - h * 0.30, cx + w / 2, cy + h * 0.62),
              start=25, end=155, fill=color, width=lw)
-    # Iris + pupil + light glint.
+
+
+def _eye(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float,
+         h: float, color, lw: int, closed: bool) -> None:
+    """Almond eye. Open: solid pupil + 3 lashes on the upper lid.
+    Closed: same almond, empty, with 3 lashes hanging from the lower lid."""
+    _almond(draw, cx, cy, w, h, color, lw)
+    lash_len = h * 0.30
+    if closed:
+        # Lashes from the lower arc, hanging down/outward.
+        lrx, lry = w / 2 * 0.92, h * 0.42
+        lcy = cy + h * 0.14
+        for phi in (65.0, 90.0, 115.0):
+            a = math.radians(phi)
+            bx = cx + lrx * math.cos(a)
+            by = lcy + lry * math.sin(a)
+            dx, dy = math.cos(a), math.sin(a)
+            draw.line((bx, by, bx + dx * lash_len, by + dy * lash_len),
+                      fill=color, width=max(1, lw - 1))
+        return
+    # Solid pupil (single filled circle — reads cleanly at tray size).
     r = h * 0.30
-    draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=color, width=lw)
-    r2 = r * 0.45
-    draw.ellipse((cx - r2, cy - r2, cx + r2, cy + r2), fill=color)
-    gr = r * 0.16
-    gx, gy = cx - r * 0.4, cy - r * 0.4
-    draw.ellipse((gx - gr, gy - gr, gx + gr, gy + gr), fill=color)
+    draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=color)
+    # Lashes from the upper arc, radiating up/outward.
+    urx, ury = w / 2 * 0.94, h / 2 * 0.94
+    for phi in (45.0, 90.0, 135.0):
+        a = math.radians(phi)
+        bx = cx + urx * math.cos(a)
+        by = cy - ury * math.sin(a)
+        dx, dy = math.cos(a), -math.sin(a)
+        draw.line((bx, by, bx + dx * lash_len, by + dy * lash_len),
+                  fill=color, width=max(1, lw - 1))
 
 
 def _tired(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float,
            h: float, color, lw: int) -> None:
-    """Open eye with a toothpick propping the upper eyelid (droopy lid)."""
-    _eye(draw, cx, cy, w, h, color, lw, closed=False)
-    # Droopy upper lid: flat arc sagging just below the eye's top edge.
+    """Open eye with a toothpick propping the droopy upper eyelid."""
+    _almond(draw, cx, cy, w, h, color, lw)
+    # Solid pupil.
+    r = h * 0.30
+    draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=color)
+    # Droopy upper lid sagging into the eye.
     draw.arc((cx - w * 0.42, cy - h * 0.75, cx + w * 0.42, cy + h * 0.35),
              start=215, end=325, fill=color, width=max(1, lw - 1))
-    # Toothpick anchored ON the upper lid, extending up-right (never
-    # crossing the iris — the stick props the lid from above).
+    # Toothpick anchored on the lid, extending up-right.
     x0, y0 = cx - w * 0.22, cy - h * 0.52
     x1, y1 = cx + w * 0.55, cy - h * 1.15
     draw.line((x0, y0, x1, y1), fill=color, width=max(1, lw))
-    # Match head at the tip.
-    r = w * 0.10
-    draw.ellipse((x1 - r, y1 - r, x1 + r, y1 + r), outline=color,
+    # Match head.
+    mr = w * 0.10
+    draw.ellipse((x1 - mr, y1 - mr, x1 + mr, y1 + mr), outline=color,
                  width=max(1, lw - 1))
 
 

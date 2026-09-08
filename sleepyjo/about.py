@@ -9,6 +9,7 @@ The BMC logo is embedded as base64 — fully offline.
 from __future__ import annotations
 
 import base64
+import io
 import logging
 import tempfile
 import webbrowser
@@ -46,10 +47,13 @@ _TEMPLATE = """<!DOCTYPE html>
     max-width: 380px; width: 92vw; text-align: center;
     box-shadow: 0 10px 40px light-dark(rgba(0,0,0,.12), rgba(0,0,0,.55));
   }}
-  .logo {{ width: 210px; border-radius: 12px; margin-bottom: 26px; }}
+  .appicon {{ width: 84px; height: 84px; margin-bottom: 14px;
+              border-radius: 20px; }}
   h1 {{ font-size: 22px; font-weight: 600; letter-spacing: -.02em; margin-bottom: 2px; }}
-  .version {{ font-size: 12px; color: light-dark(#86868b, #98989d); margin-bottom: 22px; }}
-  .row {{ font-size: 14px; line-height: 2.1; }}
+  .version {{ font-size: 12px; color: light-dark(#86868b, #98989d); }}
+  .divider {{ border: none; height: 1px; margin: 18px 0;
+              background: light-dark(#e5e5ea, #3a3a3c); }}
+  .row {{ font-size: 14px; line-height: 2.1; margin-bottom: 4px; }}
   .row .label {{ color: light-dark(#86868b, #98989d); margin-right: 6px; }}
   a {{ color: light-dark(#0066cc, #64b5f6); text-decoration: none; }}
   a:hover {{ text-decoration: underline; }}
@@ -63,9 +67,10 @@ _TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
   <main class="card">
-    <img class="logo" src="data:image/png;base64,{logo}" alt="Buy Me a Coffee">
+    <img class="appicon" src="data:image/png;base64,{appicon}" alt="SleepyJo">
     <h1>SleepyJo</h1>
     <div class="version">Version {version}</div>
+    <hr class="divider">
     <div class="row">
       <div><span class="label">{author_label}</span>{author}</div>
       <div><span class="label">{email_label}</span><a href="mailto:{email}">{email}</a></div>
@@ -75,6 +80,28 @@ _TEMPLATE = """<!DOCTYPE html>
 </body>
 </html>
 """
+
+
+def _app_icon_b64() -> str:
+    """Render the macOS-style app icon to base64 PNG (runtime, no assets)."""
+    from PIL import Image, ImageDraw
+
+    from sleepyjo.icons import _eye
+    size = 128
+    ss = 2
+    img = Image.new("RGBA", (size * ss, size * ss), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle(
+        (size // 16, size // 16, size * ss - size // 16,
+         size * ss - size // 16),
+        radius=size * 22 // 100, fill=(29, 29, 31, 255))
+    _eye(d, size * ss / 2, size * ss / 2 + size * 0.02,
+         size * ss * 0.46, size * ss * 0.29,
+         (255, 255, 255, 255), max(2, size * ss // 16), closed=False)
+    img = img.resize((size, size), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return base64.b64encode(buf.getvalue()).decode()
 
 
 def _localized(i18n) -> dict:  # type: ignore[no-untyped-def]
@@ -89,6 +116,7 @@ def _localized(i18n) -> dict:  # type: ignore[no-untyped-def]
         "coffee_label": "Buy me a coffee",
         "bmc": BMC_URL,
         "logo": BMC_LOGO_B64,
+        "appicon": _app_icon_b64(),
     }
 
 

@@ -11,6 +11,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict
 
+from sleepyjo import locales_data as _locales_data
+
 log = logging.getLogger(__name__)
 
 _DEFAULT_LANG = "pt"
@@ -40,12 +42,17 @@ class I18n:
 
     def _load(self, lang: str) -> Dict[str, str]:
         if lang not in _cache:
-            path = _LOCALES_DIR / f"{lang}.json"
-            try:
-                _cache[lang] = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                log.error("Failed loading locale %s: %s", lang, exc)
-                _cache[lang] = {}
+            # Embedded data first (survives PyInstaller packaging);
+            # JSON files as dev-time fallback/override.
+            text = getattr(_locales_data, "LOCALES", {}).get(lang)
+            if text is None:
+                path = _LOCALES_DIR / f"{lang}.json"
+                try:
+                    text = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    log.error("Failed loading locale %s: %s", lang, exc)
+                    text = {}
+            _cache[lang] = text
         return _cache[lang]
 
     def t(self, key: str, **fmt: Any) -> str:

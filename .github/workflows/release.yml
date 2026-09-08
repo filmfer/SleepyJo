@@ -55,10 +55,14 @@ jobs:
         # (Ubuntu 22.04); newer needs girepository-2.0.
         run: pip install "pygobject==3.46.0"
 
+      - name: Generate app icons
+        run: python tools/gen_app_icon.py dist
+
       - name: Build executable (PyInstaller)
         shell: bash
         run: |
           pyinstaller --noconfirm --clean --onefile --name SleepyJo \
+            $ICON_FLAG \
             --hidden-import pystray._util \
             --hidden-import sleepyjo \
             --hidden-import sleepyjo.app \
@@ -69,6 +73,8 @@ jobs:
             --hidden-import sleepyjo.tray \
             --hidden-import sleepyjo.i18n \
             sleepyjo/__main__.py
+        env:
+          ICON_FLAG: ${{ runner.os == 'macOS' && '--icon dist/icon.icns' || (runner.os == 'Windows' && '--icon dist/icon.ico' || '--icon dist/icon.png') }}
 
       # ---------- macOS: .app bundle -> DMG ----------
       - name: Package DMG
