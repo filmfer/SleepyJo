@@ -20,7 +20,7 @@ jobs:
         include:
           - os: macos-14          # Apple Silicon (M Series)
             arch: arm64
-          - os: macos-13          # Intel
+          - os: macos-15-intel    # Intel
             arch: x86_64
           - os: ubuntu-22.04      # Debian/Ubuntu/Fedora compatible
             arch: x86_64
