@@ -51,9 +51,12 @@ jobs:
           pip install -r requirements.txt pyinstaller
       - name: Install PyGObject (Linux frozen build)
         if: runner.os == 'Linux'
-        run: pip install pygobject
+        # 3.46 is the last release compatible with libgirepository-1.0
+        # (Ubuntu 22.04); newer needs girepository-2.0.
+        run: pip install "pygobject==3.46.0"
 
       - name: Build executable (PyInstaller)
+        shell: bash
         run: |
           pyinstaller --noconfirm --clean --onefile --name SleepyJo \
             --hidden-import pystray._util \
