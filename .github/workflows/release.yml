@@ -94,7 +94,7 @@ jobs:
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>CFBundleIconFile</key><string>AppIcon</string>
             <key>CFBundleIconName</key><string>AppIcon</string>
-            <key>CFBundleShortVersionString</key><string>0.1.7</string>
+            <key>CFBundleShortVersionString</key><string>0.1.8</string>
             <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>LSUIElement</key><true/>
             <key>NSHighResolutionCapable</key><true/>
@@ -118,7 +118,7 @@ jobs:
           @'
           [Setup]
           AppName=SleepyJo
-          AppVersion=0.1.7
+          AppVersion=0.1.8
           DefaultDirName={autopf}\SleepyJo
           OutputDir=dist
           OutputBaseFilename=SleepyJo-Setup-x64
@@ -166,8 +166,15 @@ jobs:
           X-GNOME-UsesNotifications=true
           DESKTOP
           sudo gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
+          echo "Checking dependencies..."
+          if command -v apt-get &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y python3-gi gir1.2-appindicator3-0.1 || true
+          elif command -v dnf &> /dev/null; then
+            sudo dnf install -y python3-gobject libappindicator-gtk3 || true
+          elif command -v pacman &> /dev/null; then
+            sudo pacman -S --noconfirm python-gobject libappindicator-gtk3 || true
+          fi
           echo "Installed. Run: sleepyjo"
-          echo "Requires: PyGObject tray deps (apt install python3-gi gir1.2-appindicator3-0.1)"
           exit 0
           __PAYLOAD_BIN__
           SCRIPT
