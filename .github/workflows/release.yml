@@ -94,7 +94,7 @@ jobs:
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>CFBundleIconFile</key><string>AppIcon</string>
             <key>CFBundleIconName</key><string>AppIcon</string>
-            <key>CFBundleShortVersionString</key><string>0.1.0</string>
+            <key>CFBundleShortVersionString</key><string>0.1.1</string>
             <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>LSUIElement</key><true/>
             <key>NSHighResolutionCapable</key><true/>
@@ -103,6 +103,9 @@ jobs:
           codesign --force --deep -s - dist/SleepyJo.app 2>/dev/null || true
           cp -R dist/SleepyJo.app dist/dmg/
           ln -s /Applications dist/dmg/Applications
+          cp dist/icon.icns dist/dmg/.VolumeIcon.icns
+          SetFile -c icnC dist/dmg/.VolumeIcon.icns || true
+          SetFile -a C dist/dmg || true
           hdiutil create -volname SleepyJo -srcfolder dist/dmg \
             -ov -format UDZO dist/SleepyJo-${{ matrix.os }}-${{ matrix.arch }}.dmg
 
@@ -115,10 +118,11 @@ jobs:
           @'
           [Setup]
           AppName=SleepyJo
-          AppVersion=0.1.0
+          AppVersion=0.1.1
           DefaultDirName={autopf}\SleepyJo
           OutputDir=dist
           OutputBaseFilename=SleepyJo-Setup-x64
+          SetupIconFile=dist\icon.ico
           Compression=lzma2
           SolidCompression=yes
           [Files]

@@ -1,75 +1,77 @@
 #!/usr/bin/env python3
-"""Generate app icons (icns/ico/png) from the SleepyJo icon factory.
-
-Split-eye design: left half = open eye, right half = closed eye.
-Renders at 2x supersampling for smooth downscale.
-"""
-
 import sys
+import os
 from pathlib import Path
+import xml.etree.ElementTree as ET
+import cairosvg
+from PIL import Image
+import io
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+def generate_icons(dist_dir: Path):
+    svg_path = Path("assets/icons/app_icon.svg")
+    with open(svg_path, "r", encoding="utf-8") as f:
+        svg_content = f.read()
 
-from PIL import Image, ImageDraw  # noqa: E402
-
-from sleepyjo.icons import _eye  # noqa: E402
-
-
-def split_eye_icon(size: int = 256) -> Image.Image:
-    """App icon: dark rounded square, left=open eye, right=closed eye."""
-    ss = size * 2  # 2x supersampling
-    img = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-
-    # Dark rounded-rectangle background (macOS app icon style).
-    pad = size // 12
-    d.rounded_rectangle(
-        (pad, pad, ss - pad, ss - pad),
-        radius=size * 22 // 100, fill=(29, 29, 31, 255))
-
-    lw = max(3, ss // 18)
-    eye_w, eye_h = ss * 0.34, ss * 0.42
-    cy = ss * 0.52
-
-    # --- Left half: open eye (pupil + upper lashes) ---
-    open_layer = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
-    open_draw = ImageDraw.Draw(open_layer)
-    _eye(open_draw, ss * 0.27, cy, eye_w, eye_h,
-         (255, 255, 255, 255), lw, closed=False)
-    # Clip to left half (with a small overlap at the center).
-    mask = Image.new("L", (ss, ss), 0)
-    ImageDraw.Draw(mask).rectangle((0, 0, ss * 0.52, ss), fill=255)
-    img.paste(open_layer, (0, 0), mask)
-
-    # --- Right half: closed eye (lower lashes) ---
-    closed_layer = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
-    closed_draw = ImageDraw.Draw(closed_layer)
-    _eye(closed_draw, ss * 0.73, cy, eye_w, eye_h,
-         (255, 255, 255, 255), lw, closed=True)
-    # Clip to right half.
-    mask = Image.new("L", (ss, ss), 0)
-    ImageDraw.Draw(mask).rectangle((ss * 0.48, 0, ss, ss), fill=255)
-    img.paste(closed_layer, (0, 0), mask)
-
-    # Subtle vertical divider.
-    div_x = ss // 2
-    d.line((div_x, ss * 0.22, div_x, ss * 0.78),
-           fill=(255, 255, 255, 25), width=1)
-
-    return img.resize((size, size), Image.LANCZOS)
-
-
-def main() -> None:
-    dist = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("dist")
-    dist.mkdir(exist_ok=True)
-    icon = split_eye_icon(256)
-    icon.save(dist / "icon.png")
-    icon.save(dist / "icon.ico", sizes=[(16, 16), (24, 24), (32, 32),
-                                        (48, 48), (64, 64), (128, 128),
-                                        (256, 256)])
-    icon.save(dist / "icon.icns")
-    print(f"Icons written to {dist}/ (png, ico, icns)")
-
+    # 1. Main App Icon (Colored, with background)
+    png_data = cairosvg.svg2png(bytestring=svg_content.encode("utf-8"), output_width=1024, output_height=1024)
+    assert png_data is not None
+    img = Image.open(io.BytesIO(png_data))
+    
+    # Save main app icons
+    img.save(dist_dir / "icon.png")
+    img.save(dist_dir / "icon.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    img.save(dist_dir / "icon.icns")
+    
+    # 2. Tray icons (no background rect)
+    # We remove the background rect
+    # We can do simple string replacement for tray icons.
+    # The rect has rx="104" or fill="url(#bgGrad)".
+    # Let's remove the rect by replacing `<rect ... stroke-width="6"/>` with nothing, 
+    # but it's easier to parse XML or regex.
+    import re
+    
+    # Remove background rect
+    tray_svg = re.sub(r'<rect x="32".*?stroke-width="6"/>', '', svg_content, flags=re.DOTALL)
+    
+    # Tray Color (No background, default colors)
+    tray_color_png = cairosvg.svg2png(bytestring=tray_svg.encode("utf-8"), output_width=128, output_height=128)
+    assert tray_color_png is not None
+    Image.open(io.BytesIO(tray_color_png)).save("assets/icons/tray_color.png")
+    
+    # Tray White (All strokes and fills to white)
+    tray_white_svg = tray_svg
+    tray_white_svg = re.sub(r'stroke="[^"]+"', 'stroke="#FFFFFF"', tray_white_svg)
+    tray_white_svg = re.sub(r'fill="url\([^)]+\)"', 'fill="#FFFFFF"', tray_white_svg)
+    tray_white_svg = re.sub(r'fill="#38BDF8"', 'fill="#FFFFFF"', tray_white_svg)
+    tray_white_svg = re.sub(r'stop-color="[^"]+"', 'stop-color="#FFFFFF"', tray_white_svg)
+    
+    tray_white_png = cairosvg.svg2png(bytestring=tray_white_svg.encode("utf-8"), output_width=128, output_height=128)
+    assert tray_white_png is not None
+    Image.open(io.BytesIO(tray_white_png)).save("assets/icons/tray_white.png")
+    
+    # Tray Black (All strokes and fills to black)
+    tray_black_svg = tray_svg
+    tray_black_svg = re.sub(r'stroke="[^"]+"', 'stroke="#000000"', tray_black_svg)
+    tray_black_svg = re.sub(r'fill="url\([^)]+\)"', 'fill="#000000"', tray_black_svg)
+    tray_black_svg = re.sub(r'fill="#38BDF8"', 'fill="#000000"', tray_black_svg)
+    tray_black_svg = re.sub(r'stop-color="[^"]+"', 'stop-color="#000000"', tray_black_svg)
+    
+    tray_black_png = cairosvg.svg2png(bytestring=tray_black_svg.encode("utf-8"), output_width=128, output_height=128)
+    assert tray_black_png is not None
+    Image.open(io.BytesIO(tray_black_png)).save("assets/icons/tray_black.png")
+    
+    print(f"Icons generated in {dist_dir} and assets/icons")
+    
+    # Also create a python module for the tray icons base64 so we don't need to bundle files
+    import base64
+    with open("sleepyjo/tray_icons_data.py", "w") as f:
+        f.write("# Auto-generated by tools/gen_app_icon.py\n")
+        f.write("app_icon_b64 = " + repr(base64.b64encode(png_data).decode()) + "\n")
+        f.write("tray_white_b64 = " + repr(base64.b64encode(tray_white_png).decode()) + "\n")
+        f.write("tray_black_b64 = " + repr(base64.b64encode(tray_black_png).decode()) + "\n")
+        f.write("tray_color_b64 = " + repr(base64.b64encode(tray_color_png).decode()) + "\n")
 
 if __name__ == "__main__":
-    main()
+    dist = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("dist")
+    dist.mkdir(exist_ok=True)
+    generate_icons(dist)

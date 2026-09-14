@@ -7,7 +7,12 @@
   "menu_custom_hours": "{hours} hora(s)",
   "menu_language": "Língua",
   "menu_flags": {
-    "pt": "🇵🇹", "en": "🇬🇧", "fr": "🇫🇷", "it": "🇮🇹", "de": "🇩🇪", "es": "🇪🇸"
+    "pt": "🇵🇹",
+    "en": "🇬🇧",
+    "fr": "🇫🇷",
+    "it": "🇮🇹",
+    "de": "🇩🇪",
+    "es": "🇪🇸"
   },
   "menu_about": "Sobre mim",
   "menu_quit": "Sair",
@@ -20,5 +25,7 @@
   "about_title": "Sobre mim",
   "about_author": "Autor: J. Filipe Fernandes",
   "about_email": "Email: filmfer@gmail.com",
-  "about_coffee": "Apoie-me: buymeacoffee.com/filmfer"
+  "about_coffee": "Apoie-me: buymeacoffee.com/filmfer",
+  "about_version": "Versão",
+  "about_coffee_button": "Buy me a coffee ☕"
 }

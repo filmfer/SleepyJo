@@ -61,18 +61,19 @@ class TrayController:
         ]
         for hours in (1, 2, 4, 8):
             items.append(pystray.MenuItem(
-                t("menu_custom_hours", hours=hours),
+                lambda item, h=hours: t("menu_custom_hours", hours=h),
                 self._make_timer_handler(hours),
                 enabled=lambda item, h=hours: (
                     not self._active and (cap is None or h <= cap)),
             ))
         items.append(pystray.Menu.SEPARATOR)
-        items.append(pystray.MenuItem(t("menu_about"), self._about))
+        items.append(pystray.MenuItem(
+            lambda item: t("menu_about"), self._about))
         items.append(pystray.Menu.SEPARATOR)
         flags = t("menu_flags")
         lang_items = [
             pystray.MenuItem(
-                f"{flags.get(lang, '')} {label}",
+                lambda item, l=lang, lb=label: f"{flags.get(l, '')} {lb}",
                 self._make_lang_handler(lang),
                 radio=True,
                 checked=lambda item, l=lang: self._i18n.lang == l)
@@ -81,9 +82,10 @@ class TrayController:
                 ("it", "Italiano"), ("de", "Deutsch"), ("es", "Español"))
         ]
         items.append(pystray.MenuItem(
-            t("menu_language"), pystray.Menu(*lang_items)))
+            lambda item: t("menu_language"), pystray.Menu(*lang_items)))
         items.append(pystray.Menu.SEPARATOR)
-        items.append(pystray.MenuItem(t("menu_quit"), self._quit))
+        items.append(pystray.MenuItem(
+            lambda item: t("menu_quit"), self._quit))
         return pystray.Menu(*items)
 
     def _toggle(self, _icon: pystray.Icon, _item: pystray.MenuItem) -> None:
@@ -100,6 +102,7 @@ class TrayController:
     def _make_lang_handler(self, lang: str) -> Callable[[pystray.Icon, pystray.MenuItem], None]:
         def handler(_icon: pystray.Icon, _item: pystray.MenuItem) -> None:
             self._i18n.set_language(lang)
+            self._icon.update_menu()  # re-evaluate dynamic labels
             self._on_language(lang)
         return handler
 

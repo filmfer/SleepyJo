@@ -22,6 +22,8 @@ LOCALES = {
         'about_author': 'Autor: J. Filipe Fernandes',
         'about_email': 'E-Mail: filmfer@gmail.com',
         'about_coffee': 'Unterstütze mich: buymeacoffee.com/filmfer',
+        'about_version': 'Version',
+        'about_coffee_button': 'Spendiere mir einen Kaffee ☕',
     },
     'en': {
         'app_name': 'SleepyJo',
@@ -44,6 +46,8 @@ LOCALES = {
         'about_author': 'Author: J. Filipe Fernandes',
         'about_email': 'Email: filmfer@gmail.com',
         'about_coffee': 'Support me: buymeacoffee.com/filmfer',
+        'about_version': 'Version',
+        'about_coffee_button': 'Buy me a coffee ☕',
     },
     'es': {
         'app_name': 'SleepyJo',
@@ -66,6 +70,8 @@ LOCALES = {
         'about_author': 'Autor: J. Filipe Fernandes',
         'about_email': 'Correo: filmfer@gmail.com',
         'about_coffee': 'Apóyame: buymeacoffee.com/filmfer',
+        'about_version': 'Versión',
+        'about_coffee_button': 'Invítame a un café ☕',
     },
     'fr': {
         'app_name': 'SleepyJo',
@@ -88,6 +94,8 @@ LOCALES = {
         'about_author': 'Auteur : J. Filipe Fernandes',
         'about_email': 'Email : filmfer@gmail.com',
         'about_coffee': 'Soutenez-moi : buymeacoffee.com/filmfer',
+        'about_version': 'Version',
+        'about_coffee_button': 'Offrez-moi un café ☕',
     },
     'it': {
         'app_name': 'SleepyJo',
@@ -110,6 +118,8 @@ LOCALES = {
         'about_author': 'Autore: J. Filipe Fernandes',
         'about_email': 'Email: filmfer@gmail.com',
         'about_coffee': 'Supportami: buymeacoffee.com/filmfer',
+        'about_version': 'Versione',
+        'about_coffee_button': 'Offrimi un caffè ☕',
     },
     'pt': {
         'app_name': 'SleepyJo',
@@ -132,5 +142,7 @@ LOCALES = {
         'about_author': 'Autor: J. Filipe Fernandes',
         'about_email': 'Email: filmfer@gmail.com',
         'about_coffee': 'Apoie-me: buymeacoffee.com/filmfer',
+        'about_version': 'Versão',
+        'about_coffee_button': 'Buy me a coffee ☕',
     },
 }

@@ -28,7 +28,7 @@ _TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SleepyJo — About</title>
+<title>SleepyJo — {title}</title>
 <style>
   :root {{ color-scheme: light dark; }}
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -69,7 +69,7 @@ _TEMPLATE = """<!DOCTYPE html>
   <main class="card">
     <img class="appicon" src="data:image/png;base64,{appicon}" alt="SleepyJo">
     <h1>SleepyJo</h1>
-    <div class="version">Version {version}</div>
+    <div class="version">{version_label} {version}</div>
     <hr class="divider">
     <div class="row">
       <div><span class="label">{author_label}</span>{author}</div>
@@ -83,39 +83,9 @@ _TEMPLATE = """<!DOCTYPE html>
 
 
 def _app_icon_b64() -> str:
-    """Render the split-eye app icon to base64 PNG (runtime, no assets)."""
-    from PIL import Image, ImageDraw
-
-    from sleepyjo.icons import _eye
-    size = 128
-    ss = size * 2
-    img = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    pad = size // 12
-    d.rounded_rectangle(
-        (pad, pad, ss - pad, ss - pad),
-        radius=size * 22 // 100, fill=(29, 29, 31, 255))
-    lw = max(3, ss // 18)
-    eye_w, eye_h = ss * 0.34, ss * 0.42
-    cy = ss * 0.52
-    # Left half: open eye.
-    open_layer = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
-    _eye(ImageDraw.Draw(open_layer), ss * 0.27, cy, eye_w, eye_h,
-         (255, 255, 255, 255), lw, closed=False)
-    mask = Image.new("L", (ss, ss), 0)
-    ImageDraw.Draw(mask).rectangle((0, 0, ss * 0.52, ss), fill=255)
-    img.paste(open_layer, (0, 0), mask)
-    # Right half: closed eye.
-    closed_layer = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
-    _eye(ImageDraw.Draw(closed_layer), ss * 0.73, cy, eye_w, eye_h,
-         (255, 255, 255, 255), lw, closed=True)
-    mask = Image.new("L", (ss, ss), 0)
-    ImageDraw.Draw(mask).rectangle((ss * 0.48, 0, ss, ss), fill=255)
-    img.paste(closed_layer, (0, 0), mask)
-    img = img.resize((size, size), Image.LANCZOS)
-    buf = io.BytesIO()
-    img.save(buf, "PNG")
-    return base64.b64encode(buf.getvalue()).decode()
+    """Return the pre-rendered app icon as base64 PNG."""
+    from sleepyjo.tray_icons_data import app_icon_b64
+    return app_icon_b64
 
 
 def _localized(i18n) -> dict:  # type: ignore[no-untyped-def]
@@ -127,7 +97,9 @@ def _localized(i18n) -> dict:  # type: ignore[no-untyped-def]
         "email": EMAIL,
         "author_label": t("about_author").split(":")[0],
         "email_label": t("about_email").split(":")[0],
-        "coffee_label": "Buy me a coffee",
+        "title": t("about_title"),
+        "version_label": t("about_version"),
+        "coffee_label": t("about_coffee_button"),
         "bmc": BMC_URL,
         "logo": BMC_LOGO_B64,
         "appicon": _app_icon_b64(),

@@ -3,11 +3,11 @@
 Lightweight cross-platform system tray wake-lock utility (Caffeine-like).
 
 - **Wake-lock:** macOS (IOPMAssertion / `caffeinate`), Windows (`SetThreadExecutionState`), Linux (D-Bus ScreenSaver inhibit + activity heartbeat). Works on Intel, AMD, Apple Silicon (M Series) and ARM.
-- **Dynamic tray icons:** programmatic (Pillow) outline eyes — closed / open / tired (toothpick) — colored by OS Light/Dark theme, with a 3-blink pre-sleep animation.
+- **Tray icons:** SVG-based moon icon rendered dynamically for the OS tray, optimized for macOS/Linux (white/black) and Windows (colored).
 - **Battery-aware:** durations capped by remaining battery, 10% toast warning, auto-disable at 5%.
 - **Timers:** 1 h default; 1/2/4/8 h presets limited by battery headroom.
 - **i18n:** Portuguese (default), English, French, Italian, German, Spanish.
-- **About me:** centered Tkinter window with animated GIF, email and Buy Me a Coffee link.
+- **About me:** embedded modern HTML page opened in the native browser.
 
 ## Run
 
