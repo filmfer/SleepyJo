@@ -94,7 +94,7 @@ jobs:
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>CFBundleIconFile</key><string>AppIcon</string>
             <key>CFBundleIconName</key><string>AppIcon</string>
-            <key>CFBundleShortVersionString</key><string>0.1.1</string>
+            <key>CFBundleShortVersionString</key><string>0.1.7</string>
             <key>LSMinimumSystemVersion</key><string>11.0</string>
             <key>LSUIElement</key><true/>
             <key>NSHighResolutionCapable</key><true/>
@@ -118,7 +118,7 @@ jobs:
           @'
           [Setup]
           AppName=SleepyJo
-          AppVersion=0.1.1
+          AppVersion=0.1.7
           DefaultDirName={autopf}\SleepyJo
           OutputDir=dist
           OutputBaseFilename=SleepyJo-Setup-x64

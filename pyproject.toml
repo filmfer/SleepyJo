@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "SleepyJo"
-version = "0.1.1"
+version = "0.1.7"
 description = "Lightweight cross-platform system tray wake-lock utility (Caffeine-like)."
 readme = "README.md"
 requires-python = ">=3.9"
