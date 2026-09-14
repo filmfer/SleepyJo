@@ -48,7 +48,7 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller cairosvg
+          pip install -r requirements.txt pyinstaller resvg-py
       - name: Install PyGObject (Linux frozen build)
         if: runner.os == 'Linux'
         # 3.46 is the last release compatible with libgirepository-1.0

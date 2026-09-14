@@ -3,9 +3,13 @@ import sys
 import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
-import cairosvg
+import resvg_py
 from PIL import Image
 import io
+
+def svg2png(svg_string: str, output_width: int, output_height: int) -> bytes:
+    """Rasterize an SVG string to PNG bytes (resvg: no native cairo needed)."""
+    return bytes(resvg_py.svg_to_bytes(svg_string=svg_string, width=output_width, height=output_height))
 
 def generate_icons(dist_dir: Path):
     svg_path = Path("assets/icons/app_icon.svg")
@@ -13,7 +17,7 @@ def generate_icons(dist_dir: Path):
         svg_content = f.read()
 
     # 1. Main App Icon (Colored, with background)
-    png_data = cairosvg.svg2png(bytestring=svg_content.encode("utf-8"), output_width=1024, output_height=1024)
+    png_data = svg2png(svg_content, 1024, 1024)
     assert png_data is not None
     img = Image.open(io.BytesIO(png_data))
     
@@ -34,7 +38,7 @@ def generate_icons(dist_dir: Path):
     tray_svg = re.sub(r'<rect x="32".*?stroke-width="6"/>', '', svg_content, flags=re.DOTALL)
     
     # Tray Color (No background, default colors)
-    tray_color_png = cairosvg.svg2png(bytestring=tray_svg.encode("utf-8"), output_width=128, output_height=128)
+    tray_color_png = svg2png(tray_svg, 128, 128)
     assert tray_color_png is not None
     Image.open(io.BytesIO(tray_color_png)).save("assets/icons/tray_color.png")
     
@@ -45,7 +49,7 @@ def generate_icons(dist_dir: Path):
     tray_white_svg = re.sub(r'fill="#38BDF8"', 'fill="#FFFFFF"', tray_white_svg)
     tray_white_svg = re.sub(r'stop-color="[^"]+"', 'stop-color="#FFFFFF"', tray_white_svg)
     
-    tray_white_png = cairosvg.svg2png(bytestring=tray_white_svg.encode("utf-8"), output_width=128, output_height=128)
+    tray_white_png = svg2png(tray_white_svg, 128, 128)
     assert tray_white_png is not None
     Image.open(io.BytesIO(tray_white_png)).save("assets/icons/tray_white.png")
     
@@ -56,7 +60,7 @@ def generate_icons(dist_dir: Path):
     tray_black_svg = re.sub(r'fill="#38BDF8"', 'fill="#000000"', tray_black_svg)
     tray_black_svg = re.sub(r'stop-color="[^"]+"', 'stop-color="#000000"', tray_black_svg)
     
-    tray_black_png = cairosvg.svg2png(bytestring=tray_black_svg.encode("utf-8"), output_width=128, output_height=128)
+    tray_black_png = svg2png(tray_black_svg, 128, 128)
     assert tray_black_png is not None
     Image.open(io.BytesIO(tray_black_png)).save("assets/icons/tray_black.png")
     
